@@ -11,4 +11,4 @@ COPY . .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Запускаємо бота
-CMD ["python", "Dyt.py"]
+CMD ["python", "ToiBot.py"]
