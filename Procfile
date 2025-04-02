@@ -1,1 +1,1 @@
-worker: python Dyt.py
+worker: python ToiBot.py
