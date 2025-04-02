@@ -1,4 +1,3 @@
 aiogram
 psutil
-time
 logging
