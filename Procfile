@@ -1,1 +1,1 @@
-worker: python ToiBot.py
+worker: python bot.py
