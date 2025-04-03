@@ -5,7 +5,8 @@ from aiogram import Bot, Dispatcher, types
 from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.utils import executor
 
-TOKEN = "7668112308:AAE26s1lNmpDNrT4lXOJQKUnup4oDKpeEyk" ADMIN_ID = "1428115542"  # Замініть на ID адміністратора
+TOKEN = "7668112308:AAE26s1lNmpDNrT4lXOJQKUnup4oDKpeEyk" 
+ADMIN_ID = "1428115542"  # Замініть на ID адміністратора
 
 logging.basicConfig(level=logging.INFO) bot = Bot(token=TOKEN) dp = Dispatcher(bot)
 
