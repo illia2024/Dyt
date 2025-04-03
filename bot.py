@@ -1,20 +1,19 @@
 import logging
 import psutil
 import time
-import asyncio
-from aiogram import Bot, Dispatcher, types, Router
-from aiogram.filters import Command
-from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery, ContentType
+from telegram import Update, Bot, InlineKeyboardMarkup, InlineKeyboardButton
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackQueryHandler, Dispatcher
 
-TOKEN = "7668112308:AAE26s1lNmpDNrT4lXOJQKUnup4oDKpeEyk"  # Вставь свой токен ADMIN_ID = 1428115542  # Замени на свой Telegram ID
+TOKEN = "7668112308:AAE26s1lNmpDNrT4lXOJQKUnup4oDKpeEyk"  # Вставьте свой токен
+ADMIN_ID = 1428115542  # Замени на свой Telegram ID
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
 
-# Создаем объекты бота, диспетчера и роутера
+# Создаем объекты бота и обновлений
 bot = Bot(token=TOKEN)
-dp = Dispatcher()
-router = Router()
+updater = Updater(bot=bot, use_context=True)
+dp = updater.dispatcher
 
 # Переменные для статистики
 start_time = time.time()
@@ -29,50 +28,61 @@ def format_uptime(seconds):
     seconds = seconds % 60
     return f"{int(days)}d {int(hours)}h {int(minutes)}m {int(seconds)}s"
 
-@router.message(Command("start"))
-async def send_welcome(message: Message):
+def start(update, context):
     """Приветственное сообщение при старте."""
     global users
-    users.add(message.from_user.id)
+    users.add(update.message.from_user.id)
     text = "🧪 Надішліть фото / відео / голосове, і я відправлю -----> @xxqwer_x"
-    await message.answer(text)
+    update.message.reply_text(text)
 
-@router.message(lambda message: message.content_type in [ContentType.PHOTO, ContentType.VIDEO, ContentType.VOICE])
-async def forward_to_admin(message: Message):
+def forward_to_admin(update, context):
     """Пересылка медиафайлов админу."""
     global sent_messages
     sent_messages += 1
-    await message.forward(ADMIN_ID)
-@router.message(Command("info_bot")) async def bot_info(message: Message): """Вывод информации о боте (только для админа).""" if message.from_user.id != ADMIN_ID: return
+    update.message.forward(chat_id=ADMIN_ID)
 
-uptime = format_uptime(time.time() - start_time)
-memory = psutil.virtual_memory().used / (1024 ** 3)
-disk = psutil.disk_usage('/').used / (1024 ** 3)
-start_time_str = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(start_time))
+def bot_info(update, context):
+    """Вывод информации о боте (только для админа)."""
+    if update.message.from_user.id != ADMIN_ID:
+        return
 
-text = (f"⏳ Время работы: {uptime}\n"
-        f"💾 Память: {memory:.2f} GB\n"
-        f"💽 Диск: {disk:.2f} GB\n"
-        f"================================\n"
-        f"📶 Бот запущен: {start_time_str}\n"
-        f"📨 Отправлено сообщений: {sent_messages}\n"
-        f"⌨️ Количество пользователей: {len(users)}")
+    uptime = format_uptime(time.time() - start_time)
+    memory = psutil.virtual_memory().used / (1024 ** 3)
+    disk = psutil.disk_usage('/').used / (1024 ** 3)
+    start_time_str = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(start_time))
 
-keyboard = InlineKeyboardMarkup(inline_keyboard=[
-    [InlineKeyboardButton(text="🔀 Обновить", callback_data="update_info")]
-])
+    text = (f"⏳ Время работы: {uptime}\n"
+            f"💾 Память: {memory:.2f} GB\n"
+            f"💽 Диск: {disk:.2f} GB\n"
+            f"================================\n"
+            f"📶 Бот запущен: {start_time_str}\n"
+            f"📨 Отправлено сообщений: {sent_messages}\n"
+            f"⌨️ Количество пользователей: {len(users)}")
 
-await message.answer(text, reply_markup=keyboard)
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔀 Обновить", callback_data="update_info")]
+    ])
 
-@router.callback_query(lambda c: c.data == "update_info") async def update_info(callback_query: CallbackQuery): """Обновление информации о боте.""" await bot_info(callback_query.message) await callback_query.answer()
+    update.message.reply_text(text, reply_markup=keyboard)
 
-Добавляем router в диспетчер
+def update_info(update, context):
+    """Обновление информации о боте."""
+    bot_info(update, context)
 
-dp.include_router(router)
+def button(update, context):
+    """Обработка нажатия кнопки."""
+    query = update.callback_query
+    if query.data == "update_info":
+        update_info(update, context)
+    query.answer()
 
-Запуск бота
+# Регистрируем обработчики
+dp.add_handler(CommandHandler("start", start))
+dp.add_handler(MessageHandler(Filters.photo | Filters.video | Filters.voice, forward_to_admin))
+dp.add_handler(CommandHandler("info_bot", bot_info))
+dp.add_handler(CallbackQueryHandler(button))
 
-async def main(): await dp.start_polling(bot)
-
-if __name__ == "__main__": asyncio.run(main())
-
+# Запуск бота
+if __name__ == "__main__":
+    updater.start_polling()
+    updater.idle()
