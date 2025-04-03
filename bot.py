@@ -42,7 +42,7 @@ async def forward_to_admin(update: Update, context):
 
 async def bot_info(update: Update, context):
     """Виведення інформації про бота (тільки для адміністраторів)."""
-    if update.message.from_user.id != ADMIN_ID:
+    if update.message.from_user.id != 1428115542:
         return
 
     uptime = format_uptime(time.time() - start_time)
