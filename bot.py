@@ -1,4 +1,10 @@
-import logging import psutil import time import asyncio from aiogram import Bot, Dispatcher, types, Router from aiogram.filters import Command from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery, ContentType
+import logging
+import psutil
+import time
+import asyncio
+from aiogram import Bot, Dispatcher, types, Router
+from aiogram.filters import Command
+from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery, ContentType
 
 TOKEN = "7668112308:AAE26s1lNmpDNrT4lXOJQKUnup4oDKpeEyk"  # Вставь свой токен ADMIN_ID = 1428115542  # Замени на свой Telegram ID
 
