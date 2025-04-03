@@ -1,18 +1,18 @@
 import logging
 import psutil
 import time
+import asyncio
 from aiogram import Bot, Dispatcher, types
 from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
-from aiogram.utils import executor
 
-TOKEN = "7668112308:AAE26s1lNmpDNrT4lXOJQKUnup4oDKpeEyk"  
-ADMIN_ID = 1428115542  # ID адміністратора має бути цілим числом, без лапок
+TOKEN = "7668112308:AAE26s1lNmpDNrT4lXOJQKUnup4oDKpeEyk"
+ADMIN_ID = 1428115542  # ID адміністратора (число)
 
 # Налаштування логування
 logging.basicConfig(level=logging.INFO)
 
 bot = Bot(token=TOKEN)
-dp = Dispatcher(bot)
+dp = Dispatcher()
 
 # Змінні для відстеження часу роботи та повідомлень
 start_time = time.time()
@@ -28,7 +28,7 @@ def format_uptime(seconds):
     return f"{days}d {hours}h {minutes}m {seconds}s"
 
 # Обробник команди /start
-@dp.message_handler(commands=['start'])
+@dp.message(commands=['start'])
 async def send_welcome(message: Message):
     global users
     users.add(message.from_user.id)
@@ -36,14 +36,15 @@ async def send_welcome(message: Message):
     await message.answer(text)
 
 # Обробник повідомлень із фото, відео або голосовими
-@dp.message_handler(content_types=[types.ContentType.PHOTO, types.ContentType.VIDEO, types.ContentType.VOICE])
+@dp.message(content_types=[types.ContentType.PHOTO, types.ContentType.VIDEO, types.ContentType.VOICE])
 async def forward_to_admin(message: Message):
     global sent_messages
     sent_messages += 1
+    await bot.send_message(ADMIN_ID, "📩 Нове повідомлення від користувача!")
     await message.forward(ADMIN_ID)
 
 # Обробник команди /info_bot (доступ тільки для адміністратора)
-@dp.message_handler(commands=['info_bot'])
+@dp.message(commands=['info_bot'])
 async def bot_info(message: Message):
     if message.from_user.id != ADMIN_ID:
         return  # Якщо не адмін, просто ігноруємо запит
@@ -61,18 +62,21 @@ async def bot_info(message: Message):
             f"📨 Відправлено повідомлень: {sent_messages}\n"
             f"⌨️ Кількість користувачів: {len(users)}")
 
-    keyboard = InlineKeyboardMarkup().add(
-        InlineKeyboardButton("🔀 Оновити", callback_data="update_info")
-    )
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔀 Оновити", callback_data="update_info")]
+    ])
 
     await message.answer(text, reply_markup=keyboard)
 
 # Обробник кнопки "Оновити"
-@dp.callback_query_handler(lambda c: c.data == "update_info")
+@dp.callback_query(lambda c: c.data == "update_info")
 async def update_info(callback_query: types.CallbackQuery):
     await bot_info(callback_query.message)
     await callback_query.answer()
 
-# Запуск бота
+# Запуск бота через asyncio
+async def main():
+    await dp.start_polling(bot)
+
 if __name__ == "__main__":
-    executor.start_polling(dp, skip_updates=True)
+    asyncio.run(main())
