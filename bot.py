@@ -58,7 +58,7 @@ async def bot_info(update: Update, context):
             f"📨 Відправлено повідомлень: {sent_messages}\n"
             f"⌨️ Кількість користувачів: {len(users)}")
 
-    await update.message.reply(text)
+    await context.bot.send_message(chat_id=update.effective_chat.id, text=text)
 
 def main():
     # Додавання обробників
