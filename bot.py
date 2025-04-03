@@ -29,7 +29,13 @@ def format_uptime(seconds):
     seconds = seconds % 60
     return f"{int(days)}d {int(hours)}h {int(minutes)}m {int(seconds)}s"
 
-@router.message(Command("start")) async def send_welcome(message: Message): """Приветственное сообщение при старте.""" global users users.add(message.from_user.id) text = "🧪 Надішліть фото / відео / голосове, і я відправлю -----> @xxqwer_x" await message.answer(text)
+@router.message(Command("start"))
+async def send_welcome(message: Message):
+    """Приветственное сообщение при старте."""
+    global users
+    users.add(message.from_user.id)
+    text = "🧪 Надішліть фото / відео / голосове, і я відправлю -----> @xxqwer_x"
+    await message.answer(text)
 
 @router.message(lambda message: message.content_type in [ContentType.PHOTO, ContentType.VIDEO, ContentType.VOICE]) async def forward_to_admin(message: Message): """Пересылка медиафайлов админу.""" global sent_messages sent_messages += 1 await message.forward(ADMIN_ID)
 
