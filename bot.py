@@ -11,7 +11,7 @@ TOKEN = "7668112308:AAE26s1lNmpDNrT4lXOJQKUnup4oDKpeEyk"  # Вставь сво�
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
 
-Создаем объекты бота и диспетчера
+#Создаем объекты бота и диспетчера
 
 bot = Bot(token=TOKEN) dp = Dispatcher() router = Router()
 
