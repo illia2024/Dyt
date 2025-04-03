@@ -1,48 +1,47 @@
+from telegram import Update
+from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters
 import logging
 import psutil
 import time
-from telegram import Update, Bot, InlineKeyboardMarkup, InlineKeyboardButton
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackQueryHandler, Dispatcher
+import asyncio
 
-TOKEN = "7668112308:AAE26s1lNmpDNrT4lXOJQKUnup4oDKpeEyk"  # Вставьте свой токен
-ADMIN_ID = 1428115542  # Замени на свой Telegram ID
+TOKEN = "7668112308:AAE26s1lNmpDNrT4lXOJQKUnup4oDKpeEyk"  # Вставте свій токен тут
+ADMIN_ID = 1428115542  # Замініть на свій ID
 
-# Настройка логирования
+# Настройка логування
 logging.basicConfig(level=logging.INFO)
 
-# Создаем объекты бота и обновлений
-bot = Bot(token=TOKEN)
-updater = Updater(bot=bot, use_context=True)
-dp = updater.dispatcher
+# Створення об'єктів
+application = Application.builder().token(TOKEN).build()
 
-# Переменные для статистики
+# Перемінні для статистики
 start_time = time.time()
 sent_messages = 0
 users = set()
 
 def format_uptime(seconds):
-    """Форматирование времени работы бота."""
+    """Форматування часу роботи бота."""
     days = seconds // 86400
     hours = (seconds % 86400) // 3600
     minutes = (seconds % 3600) // 60
     seconds = seconds % 60
     return f"{int(days)}d {int(hours)}h {int(minutes)}m {int(seconds)}s"
 
-def start(update, context):
-    """Приветственное сообщение при старте."""
+async def start(update: Update, context):
+    """Привітальне повідомлення при старті."""
     global users
     users.add(update.message.from_user.id)
     text = "🧪 Надішліть фото / відео / голосове, і я відправлю -----> @xxqwer_x"
-    update.message.reply_text(text)
+    await update.message.answer(text)
 
-def forward_to_admin(update, context):
-    """Пересылка медиафайлов админу."""
+async def forward_to_admin(update: Update, context):
+    """Пересилання медіафайлів адміну."""
     global sent_messages
     sent_messages += 1
-    update.message.forward(chat_id=ADMIN_ID)
+    await update.message.forward(chat_id=ADMIN_ID)
 
-def bot_info(update, context):
-    """Вывод информации о боте (только для админа)."""
+async def bot_info(update: Update, context):
+    """Виведення інформації про бота (тільки для адміністраторів)."""
     if update.message.from_user.id != ADMIN_ID:
         return
 
@@ -51,38 +50,24 @@ def bot_info(update, context):
     disk = psutil.disk_usage('/').used / (1024 ** 3)
     start_time_str = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(start_time))
 
-    text = (f"⏳ Время работы: {uptime}\n"
-            f"💾 Память: {memory:.2f} GB\n"
+    text = (f"⏳ Час роботи: {uptime}\n"
+            f"💾 Пам'ять: {memory:.2f} GB\n"
             f"💽 Диск: {disk:.2f} GB\n"
             f"================================\n"
-            f"📶 Бот запущен: {start_time_str}\n"
-            f"📨 Отправлено сообщений: {sent_messages}\n"
-            f"⌨️ Количество пользователей: {len(users)}")
+            f"📶 Бот запущений: {start_time_str}\n"
+            f"📨 Відправлено повідомлень: {sent_messages}\n"
+            f"⌨️ Кількість користувачів: {len(users)}")
 
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🔀 Обновить", callback_data="update_info")]
-    ])
+    await update.message.answer(text)
 
-    update.message.reply_text(text, reply_markup=keyboard)
+def main():
+    # Додавання обробників
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(MessageHandler(filters.PHOTO | filters.VIDEO | filters.VOICE, forward_to_admin))
+    application.add_handler(CommandHandler("info_bot", bot_info))
 
-def update_info(update, context):
-    """Обновление информации о боте."""
-    bot_info(update, context)
+    # Запуск бота
+    application.run_polling()
 
-def button(update, context):
-    """Обработка нажатия кнопки."""
-    query = update.callback_query
-    if query.data == "update_info":
-        update_info(update, context)
-    query.answer()
-
-# Регистрируем обработчики
-dp.add_handler(CommandHandler("start", start))
-dp.add_handler(MessageHandler(Filters.photo | Filters.video | Filters.voice, forward_to_admin))
-dp.add_handler(CommandHandler("info_bot", bot_info))
-dp.add_handler(CallbackQueryHandler(button))
-
-# Запуск бота
 if __name__ == "__main__":
-    updater.start_polling()
-    updater.idle()
+    main()
