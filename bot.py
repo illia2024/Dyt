@@ -8,8 +8,7 @@ from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, C
 
 TOKEN = "7668112308:AAE26s1lNmpDNrT4lXOJQKUnup4oDKpeEyk"  # Вставь свой токен ADMIN_ID = 1428115542  # Замени на свой Telegram ID
 
-Настройка логирования
-
+# Настройка логирования
 logging.basicConfig(level=logging.INFO)
 
 Создаем объекты бота и диспетчера
