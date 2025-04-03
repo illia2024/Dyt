@@ -58,7 +58,7 @@ async def bot_info(update: Update, context):
             f"📨 Відправлено повідомлень: {sent_messages}\n"
             f"⌨️ Кількість користувачів: {len(users)}")
 
-    await update.message.answer(text)
+    await update.message.reply(text)
 
 def main():
     # Додавання обробників
