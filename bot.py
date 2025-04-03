@@ -16,9 +16,10 @@ bot = Bot(token=TOKEN)
 dp = Dispatcher()
 router = Router()
 
-Переменные для статистики
-
-start_time = time.time() sent_messages = 0 users = set()
+# Переменные для статистики
+start_time = time.time()
+sent_messages = 0
+users = set()
 
 def format_uptime(seconds): """Форматирование времени работы бота.""" days = seconds // 86400 hours = (seconds % 86400) // 3600 minutes = (seconds % 3600) // 60 seconds = seconds % 60 return f"{int(days)}d {int(hours)}h {int(minutes)}m {int(seconds)}s"
 
