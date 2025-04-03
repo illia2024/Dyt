@@ -4,9 +4,13 @@ import logging
 import psutil
 import time
 import asyncio
+import os
 
 TOKEN = "7668112308:AAE26s1lNmpDNrT4lXOJQKUnup4oDKpeEyk"  # Вставте свій токен тут
 ADMIN_ID = 1428115542  # Замініть на свій ID
+
+# Файл для збереження часу старту
+START_TIME_FILE = "start_time.txt"
 
 # Настройка логування
 logging.basicConfig(level=logging.INFO)
@@ -15,9 +19,24 @@ logging.basicConfig(level=logging.INFO)
 application = Application.builder().token(TOKEN).build()
 
 # Перемінні для статистики
-start_time = time.time()
 sent_messages = 0
 users = set()
+
+# Функція для збереження часу старту
+def save_start_time():
+    with open(START_TIME_FILE, 'w') as f:
+        f.write(str(time.time()))
+
+# Функція для отримання часу старту
+def get_start_time():
+    if os.path.exists(START_TIME_FILE):
+        with open(START_TIME_FILE, 'r') as f:
+            return float(f.read())
+    else:
+        save_start_time()  # Якщо файл не існує, створюємо новий час
+        return time.time()
+
+start_time = get_start_time()
 
 def format_uptime(seconds):
     """Форматування часу роботи бота."""
@@ -42,7 +61,7 @@ async def forward_to_admin(update: Update, context):
 
 async def bot_info(update: Update, context):
     """Виведення інформації про бота (тільки для адміністраторів)."""
-    if update.message.from_user.id != 1428115542:
+    if update.message.from_user.id != ADMIN_ID:
         return
 
     uptime = format_uptime(time.time() - start_time)
@@ -59,6 +78,7 @@ async def bot_info(update: Update, context):
             f"⌨️ Кількість користувачів: {len(users)}")
 
     await context.bot.send_message(chat_id=update.effective_chat.id, text=text)
+
 def main():
     # Додавання обробників
     application.add_handler(CommandHandler("start", start))
