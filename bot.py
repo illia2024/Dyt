@@ -21,7 +21,13 @@ start_time = time.time()
 sent_messages = 0
 users = set()
 
-def format_uptime(seconds): """Форматирование времени работы бота.""" days = seconds // 86400 hours = (seconds % 86400) // 3600 minutes = (seconds % 3600) // 60 seconds = seconds % 60 return f"{int(days)}d {int(hours)}h {int(minutes)}m {int(seconds)}s"
+def format_uptime(seconds):
+    """Форматирование времени работы бота."""
+    days = seconds // 86400
+    hours = (seconds % 86400) // 3600
+    minutes = (seconds % 3600) // 60
+    seconds = seconds % 60
+    return f"{int(days)}d {int(hours)}h {int(minutes)}m {int(seconds)}s"
 
 @router.message(Command("start")) async def send_welcome(message: Message): """Приветственное сообщение при старте.""" global users users.add(message.from_user.id) text = "🧪 Надішліть фото / відео / голосове, і я відправлю -----> @xxqwer_x" await message.answer(text)
 
