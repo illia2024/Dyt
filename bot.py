@@ -37,8 +37,12 @@ async def send_welcome(message: Message):
     text = "🧪 Надішліть фото / відео / голосове, і я відправлю -----> @xxqwer_x"
     await message.answer(text)
 
-@router.message(lambda message: message.content_type in [ContentType.PHOTO, ContentType.VIDEO, ContentType.VOICE]) async def forward_to_admin(message: Message): """Пересылка медиафайлов админу.""" global sent_messages sent_messages += 1 await message.forward(ADMIN_ID)
-
+@router.message(lambda message: message.content_type in [ContentType.PHOTO, ContentType.VIDEO, ContentType.VOICE])
+async def forward_to_admin(message: Message):
+    """Пересылка медиафайлов админу."""
+    global sent_messages
+    sent_messages += 1
+    await message.forward(ADMIN_ID)
 @router.message(Command("info_bot")) async def bot_info(message: Message): """Вывод информации о боте (только для админа).""" if message.from_user.id != ADMIN_ID: return
 
 uptime = format_uptime(time.time() - start_time)
