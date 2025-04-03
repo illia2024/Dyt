@@ -1,2 +1,2 @@
-aiogram
 psutil
+python-telegram-bot
