@@ -1,80 +1,87 @@
 import logging
 import psutil
 import time
-import asyncio
-from aiogram import Bot, Dispatcher, types
+from aiogram import Bot, Dispatcher, types, Router
+from aiogram.filters import Command
 from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
+import asyncio
 
-TOKEN = "7668112308:AAE26s1lNmpDNrT4lXOJQKUnup4oDKpeEyk"
-ADMIN_ID = 1428115542  # ID адміністратора (число)
+TOKEN = "7668112308:AAE26s1lNmpDNrT4lXOJQKUnup4oDKpeEyk"  # Вставь свой токен
+ADMIN_ID = 1428115542  # Замени на свой Telegram ID
 
-# Налаштування логування
+# Настройка логирования
 logging.basicConfig(level=logging.INFO)
 
+# Создаем объекты бота и диспетчера
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
-# Змінні для відстеження часу роботи та повідомлень
+# Используем router для регистрации хэндлеров
+router = Router()
+
+# Переменные для статистики
 start_time = time.time()
 sent_messages = 0
 users = set()
 
-# Функція для форматування часу роботи бота
 def format_uptime(seconds):
+    """Форматирование времени работы бота."""
     days = int(seconds // 86400)
     hours = int((seconds % 86400) // 3600)
     minutes = int((seconds % 3600) // 60)
     seconds = int(seconds % 60)
     return f"{days}d {hours}h {minutes}m {seconds}s"
 
-# Обробник команди /start
-@dp.message(commands=['start'])
+@router.message(Command("start"))
 async def send_welcome(message: Message):
+    """Приветственное сообщение при старте."""
     global users
     users.add(message.from_user.id)
-    text = "🧬 Надішліть фото / відео / голосове, і я відправлю -----> @xxqwer_x"
+    text = "🧪 Надішліть фото / відео / голосове, і я відправлю -----> @xxqwer_x"
     await message.answer(text)
 
-# Обробник повідомлень із фото, відео або голосовими
-@dp.message(content_types=[types.ContentType.PHOTO, types.ContentType.VIDEO, types.ContentType.VOICE])
+@router.message(types.ContentType.PHOTO, types.ContentType.VIDEO, types.ContentType.VOICE)
 async def forward_to_admin(message: Message):
+    """Пересылка медиафайлов админу."""
     global sent_messages
     sent_messages += 1
-    await bot.send_message(ADMIN_ID, "📩 Нове повідомлення від користувача!")
     await message.forward(ADMIN_ID)
 
-# Обробник команди /info_bot (доступ тільки для адміністратора)
-@dp.message(commands=['info_bot'])
+@router.message(Command("info_bot"))
 async def bot_info(message: Message):
+    """Вывод информации о боте (только для админа)."""
     if message.from_user.id != ADMIN_ID:
-        return  # Якщо не адмін, просто ігноруємо запит
-
+        return
+    
     uptime = format_uptime(time.time() - start_time)
     memory = psutil.virtual_memory().used / (1024 ** 3)
     disk = psutil.disk_usage('/').used / (1024 ** 3)
     start_time_str = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(start_time))
 
-    text = (f"⏳ Час роботи: {uptime}\n"
-            f"💾 Використання пам'яті: {memory:.2f} GB\n"
-            f"💽 Використання диску: {disk:.2f} GB\n"
+    text = (f"⏳ Время работы: {uptime}\n"
+            f"💾 Память: {memory:.2f} GB\n"
+            f"💽 Диск: {disk:.2f} GB\n"
             f"================================\n"
-            f"📶 Бот запущений: {start_time_str}\n"
-            f"📨 Відправлено повідомлень: {sent_messages}\n"
-            f"⌨️ Кількість користувачів: {len(users)}")
+            f"📶 Бот запущен: {start_time_str}\n"
+            f"📨 Отправлено сообщений: {sent_messages}\n"
+            f"⌨️ Количество пользователей: {len(users)}")
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🔀 Оновити", callback_data="update_info")]
+        [InlineKeyboardButton(text="🔀 Обновить", callback_data="update_info")]
     ])
 
     await message.answer(text, reply_markup=keyboard)
 
-# Обробник кнопки "Оновити"
-@dp.callback_query(lambda c: c.data == "update_info")
+@router.callback_query(lambda c: c.data == "update_info")
 async def update_info(callback_query: types.CallbackQuery):
+    """Обновление информации о боте."""
     await bot_info(callback_query.message)
     await callback_query.answer()
 
-# Запуск бота через asyncio
+# Добавляем router в диспетчер
+dp.include_router(router)
+
+# Запуск бота
 async def main():
     await dp.start_polling(bot)
 
