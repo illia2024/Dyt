@@ -1,5 +1,2 @@
+aiogram
 psutil
-sqlite3
-telegram
-telegram.ext
-deletime
