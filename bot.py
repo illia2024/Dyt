@@ -1,182 +1,169 @@
+import logging
+from aiogram import Bot, Dispatcher, types
+from aiogram.utils import executor
+from datetime import datetime, timedelta
+import json
 import os
 import psutil
-import sqlite3
-from datetime import datetime, timedelta
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext, CallbackQueryHandler
+import asyncio
 
-# Токен бота
-TOKEN = '7804222340:AAHANSSZXr7qRqHTJCjV1LvbnbnPtw-DPME'
+API_TOKEN = '7800722038:AAFHllfItmbgQXh_CmDUrBgfpQzDw7f-678'
+ADMIN_ID = 8089612452  # ваш ID для отримання звітів
+DATA_FILE = 'bot_data.json'  # Файл для збереження даних
 
-# ID адміністратора (заміни на свій ID)
-ADMIN_ID = '1428115542'
+logging.basicConfig(level=logging.INFO)
+bot = Bot(token=API_TOKEN)
+dp = Dispatcher(bot)
 
-# Підключення до бази даних
-def create_db():
-    conn = sqlite3.connect('bot_data.db')
-    cursor = conn.cursor()
-    cursor.execute('''CREATE TABLE IF NOT EXISTS users (
-                        user_id INTEGER PRIMARY KEY,
-                        username TEXT,
-                        first_seen TEXT,
-                        messages_sent INTEGER)''')
-    cursor.execute('''CREATE TABLE IF NOT EXISTS bot_info (
-                        id INTEGER PRIMARY KEY,
-                        uptime TEXT)''')
-    conn.commit()
-    conn.close()
+# Ініціалізація глобальних змінних
+bot_status = {
+    'start_date': datetime.now(),
+    'uptime': timedelta(),
+    'memory_usage': 0,  # Використання пам'яті
+    'active_users': 0,
+    'groups': {}
+}
 
-create_db()
+# Обмеження для медіа
+MEDIA_LIMITS = {
+    'photo': 5,
+    'video': 2
+}
 
-# Функція для отримання даних користувача
-def get_user_data(user_id):
-    conn = sqlite3.connect('bot_data.db')
-    cursor = conn.cursor()
-    cursor.execute('SELECT * FROM users WHERE user_id = ?', (user_id,))
-    user_data = cursor.fetchone()
-    conn.close()
-    return user_data
+# Перевірка останнього запуску бота
+def check_bot_uptime():
+    if os.path.exists(DATA_FILE):
+        with open(DATA_FILE, 'r') as f:
+            data = json.load(f)
+            last_start = datetime.fromisoformat(data.get('start_date'))
+            if datetime.now() - last_start > timedelta(days=3):  # Якщо більше 3 діб без перезапуску
+                return True
+    return False
 
-# Функція для оновлення даних користувача
-def update_user_data(user_id, username):
-    conn = sqlite3.connect('bot_data.db')
-    cursor = conn.cursor()
-    user_data = get_user_data(user_id)
-    if user_data:
-        cursor.execute('UPDATE users SET messages_sent = messages_sent + 1 WHERE user_id = ?', (user_id,))
-    else:
-        cursor.execute('INSERT INTO users (user_id, username, first_seen, messages_sent) VALUES (?, ?, ?, ?)', 
-                       (user_id, username, datetime.now().strftime('%Y-%m-%d %H:%M:%S'), 0))
-    conn.commit()
-    conn.close()
+# Функція для оновлення статистики про пам'ять
+def update_memory_usage():
+    memory = psutil.virtual_memory()
+    bot_status['memory_usage'] = round(memory.used / (1024 ** 2), 2)  # Перетворюємо байти в MB
 
-# Функція для отримання аптайму бота
-def get_bot_uptime():
-    conn = sqlite3.connect('bot_data.db')
-    cursor = conn.cursor()
-    cursor.execute('SELECT uptime FROM bot_info WHERE id = 1')
-    uptime = cursor.fetchone()
-    conn.close()
-    return uptime[0] if uptime else '0 days 00:00:00'
+# Функція для збереження даних
+def save_data():
+    with open(DATA_FILE, 'w') as f:
+        json.dump({
+            'start_date': bot_status['start_date'].isoformat(),
+            'uptime': str(bot_status['uptime']),
+            'memory_usage': bot_status['memory_usage'],
+            'active_users': bot_status['active_users'],
+            'groups': bot_status['groups']
+        }, f)
 
-# Функція для оновлення аптайму
-def update_bot_uptime():
-    conn = sqlite3.connect('bot_data.db')
-    cursor = conn.cursor()
-    uptime = str(datetime.now() - datetime.fromtimestamp(psutil.boot_time())).split('.')[0]
-    cursor.execute('REPLACE INTO bot_info (id, uptime) VALUES (1, ?)', (uptime,))
-    conn.commit()
-    conn.close()
+# Функція для створення звіту для адміністратора
+async def send_status_report():
+    update_memory_usage()  # Оновлення статистики пам'яті
+    uptime_str = str(bot_status['uptime']).split(".")[0]
+    report = f"""
+    BOT STATUS REPORT
 
-# Команда /start
-def start(update: Update, context: CallbackContext) -> None:
-    user_id = update.message.from_user.id
-    username = update.message.from_user.username
-    update_user_data(user_id, username)
-    update.message.reply_text("🔥Привіт, я бот для зворотнього зв'язку, підтримую лише Відео, фото")
-    update.message.reply_text("Ваші дані збережено!")
+    ⏳ Аптайм: {uptime_str}
+    📅 Дата запуску: {bot_status['start_date'].strftime('%d.%m.%Y %H:%M')}
+    🧠 Пам'ять: {bot_status['memory_usage']} MB
+    🧮 Кількість об'єктів у БД: {len(bot_status['groups'])}
+    📊 Активних користувачів: {bot_status['active_users']}
 
-# Адмін панель
-def admin_panel(update: Update, context: CallbackContext) -> None:
-    keyboard = [
-        [InlineKeyboardButton("🔶Вст. Фото", callback_data='set_photo')],
-        [InlineKeyboardButton("📨Розсилка", callback_data='send_broadcast')],
-        [InlineKeyboardButton("🔀Інфо", callback_data='user_info')],
-        [InlineKeyboardButton("♨️БОТ", callback_data='bot_info')]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    update.message.reply_text("🔧 Адмін панель", reply_markup=reply_markup)
+    🗂 Групи під керуванням:
+    """
 
-# Обробка кнопок адмін панелі
-def button(update: Update, context: CallbackContext) -> None:
-    query = update.callback_query
-    query.answer()
+    total_deleted = 0  # Загальна кількість видаленого контенту
 
-    if query.data == 'set_photo':
-        query.edit_message_text(text="🔶Вставте фото, яке буде надсилатись після старту.")
-    elif query.data == 'send_broadcast':
-        query.edit_message_text(text="📨Введіть текст чи надішліть фото/відео для розсилки всім користувачам.")
-    elif query.data == 'user_info':
-        query.edit_message_text(text="🔀Введіть юзернейм користувача або його ID.")
-    elif query.data == 'bot_info':
-        memory_usage = psutil.virtual_memory().percent
-        disk_usage = psutil.disk_usage('/').percent
-        uptime = get_bot_uptime()
+    for group_id, group_data in bot_status['groups'].items():
+        group_report = f"""
+        {group_data['name']} | ID: {group_id}
+        - Користувачів у ліміті: {group_data['user_limit']}
+        - Всього повідомлень оброблено: {group_data['messages_processed']}
+        - Видалено фото: {group_data['deleted']['photo']} | відео: {group_data['deleted']['video']} | посилань: {group_data['deleted']['links']} | спаму: {group_data['deleted']['spam']}
+        """
+        report += group_report
+        total_deleted += sum(group_data['deleted'].values())
+
+    report += f"""
+    🔐 Загальна статистика:
+    - Загальна кількість груп: {len(bot_status['groups'])}
+    - Загальна кількість користувачів з лімітами: {bot_status['active_users']}
+    - Всього заблоковано контенту: {total_deleted}
+
+    🛠 Технічне:
+    - Версія Python: 3.11.8
+    - aiogram: 3.4.1
+    - Платформа: Linux x86_64
+    - Перезапуск через: {str(bot_status['uptime']).split(".")[0]}
+    - Автоматичне очищення лімітів: Увімкнено
+
+    ⚠️ Якщо бот не активний більше 3 діб — аптайм обнуляється, ліміти скидаються.
+    """
+
+    await bot.send_message(ADMIN_ID, report)
+
+# Функція для перевірки медіа та обмежень
+async def check_media(message: types.Message):
+    user_id = message.from_user.id
+    media_type = None
+
+    if message.photo:
+        media_type = 'photo'
+    elif message.video:
+        media_type = 'video'
+
+    if media_type:
+        user_data = user_limits.get(user_id, {'photo': 0, 'video': 0, 'last_reset': datetime.now()})
+        limit = MEDIA_LIMITS[media_type]
         
-        bot_info = f"""
-        💾 Пам'ять: {memory_usage}%
-        💽 Диск: {disk_usage}%
-        ☮️ Аптайм: {uptime}
-        """
-        query.edit_message_text(text=bot_info)
+        if user_data[media_type] >= limit:
+            await message.delete()
+            await message.answer(f"🚫 Ви перевищили ліміт на {media_type}. Спробуйте пізніше.")
+        else:
+            user_data[media_type] += 1
+            if datetime.now() - user_data['last_reset'] > timedelta(days=1):
+                user_data[media_type] = 0
+                user_data['last_reset'] = datetime.now()
+            user_limits[user_id] = user_data
 
-# Розсилка повідомлення
-def send_broadcast(update: Update, context: CallbackContext) -> None:
-    text = update.message.text.split("\n", 1)[1] if update.message.text else ""
-    conn = sqlite3.connect('bot_data.db')
-    cursor = conn.cursor()
-    cursor.execute('SELECT user_id FROM users')
-    users = cursor.fetchall()
-    for user in users:
-        context.bot.send_message(user[0], text)
-    conn.close()
+# Обробка повідомлень
+@dp.message_handler(content_types=['text', 'photo', 'video', 'document', 'url'])
+async def handle_message(message: types.Message):
+    group_id = message.chat.id
 
-# Обробка фото
-def handle_photo(update: Update, context: CallbackContext) -> None:
-    user_id = update.message.from_user.id
-    update_user_data(user_id, update.message.from_user.username)
-    # Зберігаємо фото для подальшого використання або надсилаємо адміну
-    photo_file = update.message.photo[-1].get_file()
-    context.bot.send_photo(ADMIN_ID, photo_file.file_id)
+    if group_id not in bot_status['groups']:
+        bot_status['groups'][group_id] = {
+            'name': message.chat.title,
+            'user_limit': 5,  # За замовчуванням ліміт 5 користувачів
+            'messages_processed': 0,
+            'deleted': {'photo': 0, 'video': 0, 'links': 0, 'spam': 0}
+        }
 
-# Обробка відео
-def handle_video(update: Update, context: CallbackContext) -> None:
-    user_id = update.message.from_user.id
-    update_user_data(user_id, update.message.from_user.username)
-    video_file = update.message.video.get_file()
-    context.bot.send_video(ADMIN_ID, video_file.file_id)
+    group_data = bot_status['groups'][group_id]
+    group_data['messages_processed'] += 1
 
-# Інфо про користувача
-def user_info(update: Update, context: CallbackContext) -> None:
-    username = update.message.text.split(' ', 1)[1]
-    conn = sqlite3.connect('bot_data.db')
-    cursor = conn.cursor()
-    cursor.execute('SELECT * FROM users WHERE username = ? OR user_id = ?', (username, username))
-    user_data = cursor.fetchone()
-    conn.close()
-    
-    if user_data:
-        user_info_text = f"""
-        📇 Користувач: @{user_data[1]}
-        🔸 Вперше зайшов: {user_data[2]}
-        🗯️ Надіслано повідомлень: {user_data[3]}
-        """
-        update.message.reply_text(user_info_text)
-    else:
-        update.message.reply_text("Користувача не знайдено.")
+    if message.text:
+        if 'http' in message.text or 'www' in message.text:
+            await message.delete()
+            group_data['deleted']['links'] += 1
+            save_data()  # Збереження після кожної операції
+            return
 
-def main():
-    # Налаштовуємо бота
-    updater = Updater(TOKEN)
+    await check_media(message)
+    save_data()  # Збереження після кожної операції
 
-    dispatcher = updater.dispatcher
+# Команда для адміністратора
+@dp.message_handler(commands=['bot'])
+async def bot_status(message: types.Message):
+    if message.from_user.id == ADMIN_ID:
+        await send_status_report()
 
-    # Обробники команд
-    dispatcher.add_handler(CommandHandler("start", start))
-    dispatcher.add_handler(CommandHandler("admin", admin_panel))
+# Старт бота
+if __name__ == '__main__':
+    # Якщо більше 3 діб бездіяльності, скидаємо статистику
+    if check_bot_uptime():
+        bot_status['start_date'] = datetime.now()
+        bot_status['uptime'] = timedelta()
 
-    # Обробники фото та відео
-    dispatcher.add_handler(MessageHandler(Filters.photo, handle_photo))
-    dispatcher.add_handler(MessageHandler(Filters.video, handle_video))
-
-    # Обробник для кнопок адмін панелі
-    dispatcher.add_handler(CallbackQueryHandler(button))
-
-    # Запускаємо бота
-    updater.start_polling()
-
-    # Бот працює до зупинки
-    updater.idle()
-
-if __name__ == "__main__":
-    main()
+    save_data()  # Збереження даних
+    executor.start_polling(dp, skip_updates=True)
